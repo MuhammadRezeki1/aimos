@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+.next/
+frontend/.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+!.env*.example
+!**/.env.example
+!**/.env*.example
+.agents/
+.codex/
+.venv/
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+
+# Local browser/session state and private cookies
+backend/scraping/sessions/
+backend/scraping/engine_tiktok/engine/session/
+backend/scraping/engine_instagram/session/
+backend/scraping/engine_instagram/engine/chrome_profile*/
+backend/scraping/engine_tiktok/engine/tiktok_*profile*/
+
+# Scraped/generated data
+backend/scraping/engine_tiktok/engine/output_tiktok/
+backend/scraping/engine_tiktok/engine/output_sentiment/
+backend/scraping/engine_tiktok/engine/output_procontra/
+backend/scraping/engine_tiktok/engine/analysis_jobs/
+backend/scraping/engine_instagram/output_instagram/

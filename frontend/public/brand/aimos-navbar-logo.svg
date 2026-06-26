@@ -1,0 +1,21 @@
+<svg width="2048" height="680" viewBox="0 0 2048 680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2048" height="680" fill="#FFFFFF"/>
+  <g filter="url(#softShadow)">
+    <path d="M417 439L528.5 251C531.6 245.8 539.3 245.8 542.4 251L655 439" stroke="#071936" stroke-width="42" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M510 440L537 391L565 440H510Z" fill="url(#blueFill)"/>
+    <path d="M408 414C379.5 344.2 396.7 260.3 454.6 207.8C507.9 159.6 586.5 145.4 653 174.2" stroke="#2F72F4" stroke-width="7" stroke-linecap="round"/>
+    <path d="M665 239C696.4 288.8 704.4 354.9 675.7 414" stroke="#2F72F4" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="668" cy="263" r="18" fill="url(#blueFill)"/>
+  </g>
+  <text x="760" y="372" fill="#071936" font-family="Inter, Arial, sans-serif" font-size="166" font-weight="700" letter-spacing="64">AIMOS</text>
+  <text x="762" y="444" fill="#071936" font-family="Inter, Arial, sans-serif" font-size="43" font-weight="500" letter-spacing="32">INTELLIGENCE MONITOR</text>
+  <defs>
+    <filter id="softShadow" x="364" y="144" width="354" height="328" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+    <linearGradient id="blueFill" x1="510" y1="263" x2="686" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5D9BFF"/>
+      <stop offset="1" stop-color="#1D5DF0"/>
+    </linearGradient>
+  </defs>
+</svg>
