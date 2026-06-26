@@ -1191,6 +1191,40 @@ class TikTokScraperV58(TikTokCheckpointMixin):
                     "sentiment": c["sentiment"]
                 })
             result["top_5_liked_comments"] = top5
+            result["id"] = result.get("video_id", "")
+            result["text"] = result.get("description", "")
+            result["webVideoUrl"] = result.get("url", "")
+            result["diggCount"] = result.get("digg_count", 0)
+            result["shareCount"] = result.get("share_count", 0)
+            result["playCount"] = result.get("play_count", 0)
+            result["commentCount"] = result.get("comment_count", 0)
+            result["videoMeta"] = {
+                "duration": result.get("duration", 0),
+                "coverUrl": result.get("thumbnail_url", ""),
+                "originalCoverUrl": result.get("thumbnail_url", ""),
+            }
+            result["musicMeta"] = {
+                "musicName": result.get("music_title", ""),
+            }
+            result["authorMeta"] = {
+                "name": result.get("username", ""),
+                "profileUrl": f"https://www.tiktok.com/@{result.get('username', '')}" if result.get("username") else "",
+            }
+            result["latestComments"] = [
+                {
+                    "id": c.get("comment_id", ""),
+                    "text": c.get("text", ""),
+                    "ownerUsername": c.get("username", ""),
+                    "timestamp": c.get("created_at", 0),
+                    "repliesCount": c.get("reply_count", 0),
+                    "likesCount": c.get("like_count", 0),
+                    "owner": {
+                        "username": c.get("username", ""),
+                        "full_name": c.get("nickname", ""),
+                    },
+                }
+                for c in final_comments
+            ]
 
         except Exception as e:
             print(Fore.RED + f"\n❌ GAGAL: {e}")

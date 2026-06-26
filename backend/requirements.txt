@@ -2,6 +2,7 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.5
 python-dotenv>=1.0
+psycopg[binary]>=3.2
 playwright>=1.42
 requests>=2.32
 colorama>=0.4.6

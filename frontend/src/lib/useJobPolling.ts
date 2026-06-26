@@ -20,6 +20,7 @@ type UseJobPollingResult = {
 };
 
 const POLL_INTERVAL_MS = 2000;
+const jobStorageKey = (kind: AnalysisKind) => `aimos:analysis-job:${kind}`;
 
 export function useJobPolling(kind: AnalysisKind): UseJobPollingResult {
   const [phase, setPhase] = useState<JobPhase>("idle");
@@ -39,11 +40,14 @@ export function useJobPolling(kind: AnalysisKind): UseJobPollingResult {
   const reset = useCallback(() => {
     stopTimer();
     jobIdRef.current = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(jobStorageKey(kind));
+    }
     setPhase("idle");
     setJob(null);
     setResult(null);
     setError(null);
-  }, [stopTimer]);
+  }, [kind, stopTimer]);
 
   const poll = useCallback(async () => {
     const jobId = jobIdRef.current;
@@ -64,11 +68,17 @@ export function useJobPolling(kind: AnalysisKind): UseJobPollingResult {
         }
       } else if (data.status === "error" || data.status === "cancelled") {
         stopTimer();
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(jobStorageKey(kind));
+        }
         setError(data.error || `Job ${data.status}.`);
         setPhase("error");
       }
     } catch (pollError) {
       stopTimer();
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(jobStorageKey(kind));
+      }
       setError(pollError instanceof Error ? pollError.message : "Gagal polling job.");
       setPhase("error");
     }
@@ -78,6 +88,9 @@ export function useJobPolling(kind: AnalysisKind): UseJobPollingResult {
     (jobId: string) => {
       stopTimer();
       jobIdRef.current = jobId;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(jobStorageKey(kind), jobId);
+      }
       setPhase("running");
       setJob(null);
       setResult(null);
@@ -85,8 +98,15 @@ export function useJobPolling(kind: AnalysisKind): UseJobPollingResult {
       void poll();
       timerRef.current = setInterval(() => void poll(), POLL_INTERVAL_MS);
     },
-    [poll, stopTimer]
+    [kind, poll, stopTimer]
   );
+
+  useEffect(() => {
+    const storedJobId = window.localStorage.getItem(jobStorageKey(kind));
+    if (storedJobId && !jobIdRef.current) {
+      start(storedJobId);
+    }
+  }, [kind, start]);
 
   useEffect(() => stopTimer, [stopTimer]);
 

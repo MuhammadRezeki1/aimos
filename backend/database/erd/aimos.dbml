@@ -1,0 +1,296 @@
+// AIMOS Social Media Scraping ERD
+// Import ke https://dbdiagram.io  →  paste file ini → Export PNG/PDF
+//
+// Dataset types di scrape_runs.dataset_type:
+//   profile | post | hashtag | keyword
+//
+// Keyword search: file tt_search_kw_* / ig_search_kw_*
+//   → scrape_runs (dataset_type='keyword')
+//   → social_posts + scrape_run_posts + keyword_posts
+
+Project aimos {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Platform: tiktok | instagram
+    JSON mentah disimpan di kolom raw_payload (JSONB).
+    Keyword search SUDAH masuk via tabel keyword_posts.
+  '''
+}
+
+// ─── Core scrape metadata ───────────────────────────────────────────────────
+
+Table scrape_runs {
+  id bigserial [pk]
+  platform text [not null, note: 'tiktok | instagram']
+  dataset_type text [not null, note: 'profile | post | hashtag | keyword']
+  dataset_file text [unique, not null, note: 'tt_search_kw_*.json, ig_profile_*.json, dll']
+  query text [note: 'keyword / hashtag / username']
+  label text
+  group_name text
+  title text
+  goal text
+  scraped_at timestamptz
+  total_fetched int [default: 0]
+  raw_payload jsonb [not null, note: 'JSON scrape lengkap']
+  imported_at timestamptz [default: `now()`]
+
+  Note: '''
+    Satu baris = satu file JSON hasil scrape.
+    Keyword: dataset_type=keyword, query=keyword yang dicari.
+    Hashtag: dataset_type=hashtag, query=#tag.
+  '''
+}
+
+// ─── Posts (unified TikTok + Instagram) ───────────────────────────────────────
+
+Table social_posts {
+  id bigserial [pk]
+  platform text [not null]
+  platform_post_id text [not null, note: 'TT: video_id | IG: media_id/shortcode']
+  shortcode text [note: 'Instagram only']
+  url text
+  creator_username text
+  creator_full_name text
+  creator_is_verified boolean [default: false]
+  caption text
+  media_type text [note: 'IG: PHOTO|VIDEO|CAROUSEL | TT: VIDEO']
+  product_type text [note: 'IG: clips/reels']
+  like_count int [default: 0, note: 'TT: like_count/digg_count | IG: like_count']
+  comment_count int [default: 0]
+  share_count int [default: 0, note: 'TikTok mainly']
+  play_count int [default: 0, note: 'views — TT: play_count | IG: view_count']
+  collect_count int [default: 0, note: 'TT: collect_count | IG: saves_count']
+  duration_seconds int [default: 0, note: 'TikTok only']
+  music_title text [note: 'TikTok only']
+  thumbnail_url text
+  posted_at timestamptz
+  raw_payload jsonb [not null]
+  first_seen_at timestamptz
+  last_seen_at timestamptz
+
+  indexes {
+    (platform, platform_post_id) [unique]
+    (platform, creator_username)
+    (posted_at)
+  }
+}
+
+// ─── Junction: run ↔ post (hashtag + keyword + post scrape) ─────────────────
+
+Table scrape_run_posts {
+  run_id bigint [pk, ref: > scrape_runs.id]
+  post_id bigint [pk, ref: > social_posts.id]
+  rank int
+  source text [note: 'top | recent | challenge_api | graphql']
+  search_source_tag text [note: 'TT: search_source_tag | IG: hashtag per post']
+  raw_payload jsonb [not null]
+
+  Note: 'Semua post dari hashtag/keyword/post search ter-link di sini.'
+}
+
+// ─── Keyword search (KHUSUS dataset_type=keyword) ────────────────────────────
+
+Table keyword_posts {
+  id bigserial [pk]
+  run_id bigint [not null, ref: > scrape_runs.id]
+  post_id bigint [not null, ref: > social_posts.id]
+  platform text [not null]
+  keyword text [not null, note: 'dari scrape_runs.query']
+  source_type text [default: 'keyword']
+  rank int
+  raw_payload jsonb [not null]
+  imported_at timestamptz
+
+  indexes {
+    (run_id, post_id, keyword) [unique]
+    (keyword)
+    (post_id)
+  }
+
+  Note: '''
+    HANYA diisi saat dataset_type = keyword.
+    Hashtag search TIDAK masuk tabel ini (hanya scrape_run_posts).
+    File: tt_search_kw_* / ig_search_kw_*
+  '''
+}
+
+// ─── Hashtags on posts ────────────────────────────────────────────────────────
+
+Table post_hashtags {
+  post_id bigint [pk, ref: > social_posts.id]
+  hashtag text [pk]
+
+  indexes {
+    (hashtag)
+  }
+}
+
+// ─── Comments (post scrape + sentiment) ─────────────────────────────────────
+
+Table post_comments {
+  id bigserial [pk]
+  run_id bigint [ref: > scrape_runs.id]
+  post_id bigint [ref: > social_posts.id]
+  platform text [not null]
+  platform_comment_id text
+  parent_comment_id text [note: 'IG nested replies']
+  username text
+  nickname text [note: 'TikTok only']
+  text text [not null]
+  like_count int [default: 0]
+  reply_count int [default: 0]
+  created_at timestamptz
+  sentiment text
+  category text
+  language text
+  is_hate_speech boolean
+  is_toxic boolean
+  is_sarcasm boolean
+  is_wellwish boolean
+  hate_score float
+  ml_confidence float
+  decision_source text
+  content_fingerprint text [not null]
+  raw_payload jsonb [not null]
+  imported_at timestamptz
+
+  indexes {
+    (platform, platform_comment_id) [unique]
+    (platform, content_fingerprint) [unique]
+    (post_id)
+    (sentiment)
+  }
+}
+
+// ─── Creator profiles ─────────────────────────────────────────────────────────
+
+Table creator_profiles {
+  id bigserial [pk]
+  platform text [not null]
+  username text [not null]
+  display_name text
+  bio text [note: 'TT: bio | IG: biography']
+  avatar_url text
+  followers int [default: 0]
+  following int [default: 0]
+  posts_count int [default: 0, note: 'TT: total_videos | IG: posts_count']
+  total_likes int [default: 0, note: 'TikTok only — IG tidak punya field ini']
+  is_verified boolean [default: false]
+  is_private boolean [default: false]
+  scraped_at timestamptz
+  raw_payload jsonb [not null, note: 'IG: recent_posts[], engagement_summary']
+  last_seen_at timestamptz
+
+  indexes {
+    (platform, username) [unique]
+  }
+}
+
+// ─── Analysis (sentiment / pro-contra dari komentar) ─────────────────────────
+
+Table analysis_runs {
+  id bigserial [pk]
+  analysis_id text [unique, not null]
+  kind text [not null, note: 'sentiment | procontra']
+  topic text
+  caption text
+  stance_target text
+  source_dataset text
+  model text
+  main_model text
+  comparison_model text
+  total int [default: 0]
+  summary jsonb
+  metrics jsonb
+  raw_payload jsonb [not null]
+  created_at timestamptz
+  imported_at timestamptz
+}
+
+Table sentiment_analysis_items {
+  id bigserial [pk]
+  analysis_run_id bigint [not null, ref: > analysis_runs.id]
+  item_index int [not null]
+  username text
+  text text [not null]
+  main_label text
+  main_score float
+  comparison_label text
+  comparison_score float
+  agree boolean
+  raw_payload jsonb [not null]
+
+  indexes {
+    (analysis_run_id, item_index) [unique]
+  }
+}
+
+Table procontra_analysis_items {
+  id bigserial [pk]
+  analysis_run_id bigint [not null, ref: > analysis_runs.id]
+  item_index int [not null]
+  username text
+  text text [not null]
+  stance text [note: 'PRO | CONTRA | NEUTRAL']
+  score float
+  scores jsonb
+  raw_payload jsonb [not null]
+
+  indexes {
+    (analysis_run_id, item_index) [unique]
+  }
+}
+
+// ─── Instagram local growth tracking (SQLite — BUKAN PostgreSQL) ─────────────
+// File: backend/scraping/engine_instagram/engine/data/snapshots.db
+
+TableGroup instagram_local_sqlite [note: 'Hanya di SQLite lokal Instagram, belum di PostgreSQL'] {
+  ig_profiles
+  ig_snapshots
+  ig_recent_posts
+}
+
+Table ig_profiles {
+  username text [pk]
+  full_name text
+  user_id text
+  is_verified int
+  is_business int
+  is_private int
+  category text
+  biography text
+  external_url text
+  first_seen text
+  last_updated text
+}
+
+Table ig_snapshots {
+  id int [pk]
+  username text [ref: > ig_profiles.username]
+  scraped_at text
+  scraped_date text
+  followers int
+  following int
+  posts_count int
+  engagement_rate float
+  avg_likes int
+  avg_comments int
+  avg_views int
+  posts_analyzed int
+  method text
+}
+
+Table ig_recent_posts {
+  id int [pk]
+  snapshot_id int [ref: > ig_snapshots.id]
+  username text
+  shortcode text
+  post_url text
+  media_type text
+  likes int
+  comments int
+  views int
+  is_video int
+  taken_at int
+  caption text
+}

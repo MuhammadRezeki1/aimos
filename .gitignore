@@ -21,6 +21,7 @@ build/
 .codex/
 .venv/
 backend/.venv/
+backend/venv/
 
 # Python cache
 __pycache__/

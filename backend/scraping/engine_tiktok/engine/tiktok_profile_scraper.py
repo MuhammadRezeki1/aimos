@@ -492,6 +492,36 @@ class TikTokProfileScraper(TikTokWarmupMixin):
             "method": "",
         }
 
+    def _add_apify_profile_fields(self, profile: Dict) -> Dict:
+        username = profile.get("username", "")
+        author_meta = {
+            "id": profile.get("user_id", ""),
+            "name": username,
+            "profileUrl": f"https://www.tiktok.com/@{username}" if username else "",
+            "nickName": profile.get("display_name", ""),
+            "verified": bool(profile.get("is_verified", False)),
+            "signature": profile.get("bio", ""),
+            "avatar": profile.get("avatar_url", ""),
+            "privateAccount": bool(profile.get("is_private", False)),
+            "fans": profile.get("followers", 0),
+            "following": profile.get("following", 0),
+            "heart": profile.get("total_likes", 0),
+            "video": profile.get("total_videos", 0),
+            "secUid": profile.get("sec_uid", ""),
+        }
+        profile["authorMeta"] = author_meta
+        profile["authorMeta.avatar"] = author_meta["avatar"]
+        profile["authorMeta.name"] = author_meta["name"]
+        profile["authorMeta.nickName"] = author_meta["nickName"]
+        profile["authorMeta.verified"] = author_meta["verified"]
+        profile["authorMeta.signature"] = author_meta["signature"]
+        profile["authorMeta.fans"] = author_meta["fans"]
+        profile["authorMeta.video"] = author_meta["video"]
+        profile["authorMeta.privateAccount"] = author_meta["privateAccount"]
+        profile["authorMeta.id"] = author_meta["id"]
+        profile["authorMeta.secUid"] = author_meta["secUid"]
+        return profile
+
     @staticmethod
     def _map_userinfo(ui: Dict) -> Optional[Dict]:
         """Map blok userInfo (user + stats) ke struktur profil kita."""
@@ -1114,6 +1144,7 @@ class TikTokProfileScraper(TikTokWarmupMixin):
 
             self._display_profile_box(profile_data)
             profile_data["scraped_at"] = result["scraped_at"]  # wajib untuk save_tracking_data
+            self._add_apify_profile_fields(profile_data)
             result["success"] = True
             result["data"] = profile_data
 

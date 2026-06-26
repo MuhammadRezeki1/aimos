@@ -971,21 +971,28 @@ class InstagramSearchScraper:
         if not thumb:
             thumb = media.get("thumbnail_src") or media.get("display_url") or ""
 
+        url = self._post_url(code, product_type)
+        like_count = int(media.get("like_count", 0) or 0)
+        comment_count = int(media.get("comment_count", 0) or 0)
+        view_count = int(
+            media.get("view_count") or media.get("play_count")
+            or media.get("ig_play_count") or 0
+        )
+        play_count = int(media.get("play_count") or media.get("ig_play_count") or 0)
+
         return {
+            # AIMOS normalized fields
             "media_id":          pk,
             "shortcode":         code,
-            "url":               self._post_url(code, product_type),
+            "url":               url,
             "owner_username":    user.get("username", ""),
             "owner_full_name":   user.get("full_name", ""),
             "owner_is_verified": bool(user.get("is_verified", False)),
             "caption":           caption_text[:500],
-            "like_count":        int(media.get("like_count", 0) or 0),
-            "comment_count":     int(media.get("comment_count", 0) or 0),
-            "view_count":        int(
-                media.get("view_count") or media.get("play_count")
-                or media.get("ig_play_count") or 0
-            ),
-            "play_count":        int(media.get("play_count") or media.get("ig_play_count") or 0),
+            "like_count":        like_count,
+            "comment_count":     comment_count,
+            "view_count":        view_count,
+            "play_count":        play_count,
             "taken_at":          taken_at,
             "taken_at_iso":      iso,
             "media_type":        mtype,
@@ -994,6 +1001,23 @@ class InstagramSearchScraper:
             "is_video":          mtype == "VIDEO",
             "source":            source,
             "rank":              rank,
+            # Apify-compatible fields
+            "inputUrl":          url,
+            "id":                pk,
+            "type":              "Video" if mtype == "VIDEO" else ("Sidecar" if mtype == "CAROUSEL" else "Image"),
+            "shortCode":         code,
+            "hashtags":          re.findall(r"#([0-9A-Za-z_\u00C0-\uFFFF]+)", caption_text or ""),
+            "mentions":          re.findall(r"@([0-9A-Za-z_.]+)", caption_text or ""),
+            "commentsCount":     comment_count,
+            "likesCount":        like_count,
+            "videoViewCount":    view_count,
+            "videoPlayCount":    play_count,
+            "timestamp":         iso,
+            "displayUrl":        thumb,
+            "ownerUsername":     user.get("username", ""),
+            "ownerFullName":     user.get("full_name", ""),
+            "ownerId":           str(user.get("pk") or user.get("id") or ""),
+            "productType":       product_type,
         }
 
     def _parse_media_graphql(self, node: Dict, source: str, rank: int) -> Optional[Dict]:
@@ -1029,26 +1053,33 @@ class InstagramSearchScraper:
         thumb        = node.get("thumbnail_src") or node.get("display_url") or ""
         product_type = "clips" if is_video else ""
 
+        url = self._post_url(code, product_type)
+        like_count = int(
+            node.get("edge_liked_by", {}).get("count", 0)
+            or node.get("edge_media_preview_like", {}).get("count", 0)
+            or 0
+        )
+        comment_count = int(
+            node.get("edge_media_to_comment", {}).get("count", 0)
+            or node.get("edge_media_preview_comment", {}).get("count", 0)
+            or 0
+        )
+        view_count = int(node.get("video_view_count", 0) or 0)
+        play_count = int(node.get("video_play_count", 0) or 0)
+
         return {
+            # AIMOS normalized fields
             "media_id":          pk,
             "shortcode":         code,
-            "url":               self._post_url(code, product_type),
+            "url":               url,
             "owner_username":    owner.get("username", ""),
             "owner_full_name":   owner.get("full_name", ""),
             "owner_is_verified": bool(owner.get("is_verified", False)),
             "caption":           caption_text[:500],
-            "like_count":        int(
-                node.get("edge_liked_by", {}).get("count", 0)
-                or node.get("edge_media_preview_like", {}).get("count", 0)
-                or 0
-            ),
-            "comment_count":     int(
-                node.get("edge_media_to_comment", {}).get("count", 0)
-                or node.get("edge_media_preview_comment", {}).get("count", 0)
-                or 0
-            ),
-            "view_count":        int(node.get("video_view_count", 0) or 0),
-            "play_count":        int(node.get("video_play_count", 0) or 0),
+            "like_count":        like_count,
+            "comment_count":     comment_count,
+            "view_count":        view_count,
+            "play_count":        play_count,
             "taken_at":          taken_at,
             "taken_at_iso":      iso,
             "media_type":        mtype,
@@ -1057,6 +1088,23 @@ class InstagramSearchScraper:
             "is_video":          is_video,
             "source":            source,
             "rank":              rank,
+            # Apify-compatible fields
+            "inputUrl":          url,
+            "id":                pk,
+            "type":              "Video" if mtype == "VIDEO" else ("Sidecar" if mtype == "CAROUSEL" else "Image"),
+            "shortCode":         code,
+            "hashtags":          re.findall(r"#([0-9A-Za-z_\u00C0-\uFFFF]+)", caption_text or ""),
+            "mentions":          re.findall(r"@([0-9A-Za-z_.]+)", caption_text or ""),
+            "commentsCount":     comment_count,
+            "likesCount":        like_count,
+            "videoViewCount":    view_count,
+            "videoPlayCount":    play_count,
+            "timestamp":         iso,
+            "displayUrl":        thumb,
+            "ownerUsername":     owner.get("username", ""),
+            "ownerFullName":     owner.get("full_name", ""),
+            "ownerId":           str(owner.get("id") or ""),
+            "productType":       product_type,
         }
 
     @staticmethod

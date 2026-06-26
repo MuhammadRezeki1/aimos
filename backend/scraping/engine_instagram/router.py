@@ -19,7 +19,7 @@ from pydantic import BaseModel
 router = APIRouter()
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-ENGINE_DIR = os.environ.get("INSTAGRAM_ENGINE_DIR", os.path.join(_HERE, "engine"))
+ENGINE_DIR = os.getenv("INSTAGRAM_ENGINE_DIR") or os.path.join(_HERE, "engine")
 ENGINE_DIR = os.path.abspath(ENGINE_DIR)
 OUTPUT_DIR = os.path.join(_HERE, "output_instagram")
 SESSION_DIR = os.path.join(_HERE, "session")
@@ -129,6 +129,15 @@ def _save_json(data: dict, filename: str) -> str:
   with open(path, "w", encoding="utf-8") as file:
     json.dump(data, file, ensure_ascii=False, indent=2, default=str)
   return safe
+
+
+def _try_import_saved_dataset(filename: str) -> None:
+  try:
+    from pathlib import Path
+    from database.postgres import import_dataset_file
+    import_dataset_file("instagram", Path(OUTPUT_DIR) / filename)
+  except Exception as error:
+    print(f"[ig-db] import skipped for {filename}: {error}")
 
 
 def _estimate_post_timeout(max_comments: int, include_replies: bool) -> int:
@@ -309,21 +318,39 @@ def _normalize_profile_for_frontend(result: dict) -> dict:
   profile = result.get("data") if isinstance(result.get("data"), dict) else result
   if not isinstance(profile, dict):
     profile = {}
+  username = profile.get("username") or result.get("username") or ""
+  display_name = profile.get("display_name") or profile.get("full_name") or profile.get("name") or profile.get("fullName") or ""
+  bio = profile.get("bio") or profile.get("biography") or ""
+  avatar_url = profile.get("avatar_url") or profile.get("profile_pic_url") or profile.get("profilePicUrl") or profile.get("profile_pic_url_hd") or ""
+  followers = profile.get("followers") or profile.get("follower_count") or profile.get("followersCount") or 0
+  following = profile.get("following") or profile.get("following_count") or profile.get("followsCount") or 0
+  posts_count = profile.get("total_videos") or profile.get("media_count") or profile.get("posts_count") or profile.get("postsCount") or 0
+  is_verified = bool(profile.get("is_verified") or profile.get("verified"))
+  is_private = bool(profile.get("is_private") or profile.get("private"))
   return {
     **result,
     "data": {
       **profile,
-      "username": profile.get("username") or result.get("username") or "",
-      "display_name": profile.get("display_name") or profile.get("full_name") or profile.get("name") or "",
-      "bio": profile.get("bio") or profile.get("biography") or "",
-      "avatar_url": profile.get("avatar_url") or profile.get("profile_pic_url") or profile.get("profile_pic_url_hd") or "",
-      "followers": profile.get("followers") or profile.get("follower_count") or 0,
-      "following": profile.get("following") or profile.get("following_count") or 0,
+      "username": username,
+      "display_name": display_name,
+      "bio": bio,
+      "avatar_url": avatar_url,
+      "followers": followers,
+      "following": following,
       "total_likes": profile.get("total_likes") or profile.get("total_like_count") or 0,
-      "total_videos": profile.get("total_videos") or profile.get("media_count") or profile.get("posts_count") or 0,
-      "is_verified": bool(profile.get("is_verified")),
-      "is_private": bool(profile.get("is_private")),
+      "total_videos": posts_count,
+      "is_verified": is_verified,
+      "is_private": is_private,
       "method": profile.get("method") or "instagram",
+      "fullName": display_name,
+      "profilePicUrl": avatar_url,
+      "postsCount": posts_count,
+      "followersCount": followers,
+      "followsCount": following,
+      "private": is_private,
+      "verified": is_verified,
+      "isBusinessAccount": bool(profile.get("is_business_account") or profile.get("isBusinessAccount")),
+      "biography": bio,
     },
   }
 
@@ -450,6 +477,7 @@ def search_hashtag(req: SearchHashtagRequest):
       _attach_scrape_meta(result, req.group, req.title, req.goal)
       filename = f"ig_search_tag_{_sanitize(result.get('hashtag') or hashtag)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
       saved = _save_json(result, filename)
+      _try_import_saved_dataset(saved)
       result["_meta"] = {"elapsed_seconds": elapsed, "saved_file": saved}
       return _success(result, f"#{result.get('hashtag') or hashtag}: {result.get('total_fetched', 0)} post")
     result.setdefault("_meta", {})["elapsed_seconds"] = elapsed
@@ -478,6 +506,7 @@ def search_keyword(req: SearchKeywordRequest):
       _attach_scrape_meta(result, req.group, req.title, req.goal)
       filename = f"ig_search_kw_{_sanitize(keyword)[:40]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
       saved = _save_json(result, filename)
+      _try_import_saved_dataset(saved)
       result["_meta"] = {"elapsed_seconds": elapsed, "saved_file": saved}
       return _success(result, f"'{keyword}': {result.get('total_fetched', 0)} post Instagram")
     result.setdefault("_meta", {})["elapsed_seconds"] = elapsed
@@ -502,6 +531,7 @@ def search_post(req: PostCommentsRequest):
       return _failure(result.get("error") or "Scraping post Instagram gagal", result)
     filename = f"ig_post_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     saved = _save_json(result, filename)
+    _try_import_saved_dataset(saved)
     result["_meta"] = {"elapsed_seconds": elapsed, "saved_file": saved}
     return _success(result, f"Post Instagram: {result.get('comments_count', 0)} komentar")
   except Exception as error:
@@ -521,6 +551,7 @@ def search_profile(req: ProfileRequest):
     normalized = _normalize_profile_for_frontend(result)
     filename = f"ig_profile_{_sanitize(username)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     saved = _save_json(normalized, filename)
+    _try_import_saved_dataset(saved)
     normalized["_meta"] = {"elapsed_seconds": elapsed, "saved_file": saved}
     if not result.get("success"):
       return _failure(result.get("error") or f"Profile @{username} gagal", normalized)

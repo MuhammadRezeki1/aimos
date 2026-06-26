@@ -1,0 +1,106 @@
+erDiagram
+    scrape_runs ||--o{ scrape_run_posts : contains
+    scrape_runs ||--o{ keyword_posts : "keyword search only"
+    scrape_runs ||--o{ post_comments : from_run
+
+    social_posts ||--o{ scrape_run_posts : referenced_by
+    social_posts ||--o{ keyword_posts : matched_by_keyword
+    social_posts ||--o{ post_hashtags : tagged_with
+    social_posts ||--o{ post_comments : has
+
+    analysis_runs ||--o{ sentiment_analysis_items : has
+    analysis_runs ||--o{ procontra_analysis_items : has
+
+    scrape_runs {
+        bigserial id PK
+        text platform "tiktok|instagram"
+        text dataset_type "profile|post|hashtag|keyword"
+        text dataset_file UK
+        text query "keyword/hashtag/username"
+        text label
+        timestamptz scraped_at
+        int total_fetched
+        jsonb raw_payload
+    }
+
+    keyword_posts {
+        bigserial id PK
+        bigint run_id FK
+        bigint post_id FK
+        text platform
+        text keyword "dari scrape_runs.query"
+        text source_type "keyword"
+        int rank
+        jsonb raw_payload
+    }
+
+    social_posts {
+        bigserial id PK
+        text platform
+        text platform_post_id UK
+        text shortcode "IG"
+        text creator_username
+        text caption
+        int like_count
+        int comment_count
+        int play_count "views"
+        int share_count
+        int collect_count
+        jsonb raw_payload
+    }
+
+    scrape_run_posts {
+        bigint run_id PK_FK
+        bigint post_id PK_FK
+        int rank
+        text source
+        text search_source_tag
+    }
+
+    post_hashtags {
+        bigint post_id PK_FK
+        text hashtag PK
+    }
+
+    post_comments {
+        bigserial id PK
+        bigint run_id FK
+        bigint post_id FK
+        text username
+        text text
+        int like_count
+        text sentiment
+        text parent_comment_id "IG replies"
+    }
+
+    creator_profiles {
+        bigserial id PK
+        text platform UK
+        text username UK
+        text bio
+        int followers
+        int following
+        int posts_count
+        int total_likes "TT only"
+        jsonb raw_payload
+    }
+
+    analysis_runs {
+        bigserial id PK
+        text analysis_id UK
+        text kind "sentiment|procontra"
+        jsonb summary
+    }
+
+    sentiment_analysis_items {
+        bigserial id PK
+        bigint analysis_run_id FK
+        text main_label
+        boolean agree
+    }
+
+    procontra_analysis_items {
+        bigserial id PK
+        bigint analysis_run_id FK
+        text stance "PRO|CONTRA|NEUTRAL"
+    }

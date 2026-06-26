@@ -90,6 +90,11 @@ def _save_result(kind: str, analysis_id: str, result: dict) -> str:
     fp = os.path.join(_output_dir(kind), fn)
     with open(fp, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2, default=str)
+    try:
+        from database.postgres import save_analysis_result
+        save_analysis_result(kind, result)
+    except Exception as error:
+        print(f"[AnalysisJob:{analysis_id}] DB save skipped: {error}")
     return fn
 
 
@@ -143,6 +148,14 @@ def extract_texts(dataset: dict) -> List[Dict[str, str]]:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+def _comment_ref(src: dict) -> dict:
+    for key in ("comment_id", "db_comment_id", "post_comment_id"):
+        value = src.get(key)
+        if value not in (None, ""):
+            return {"comment_id": value}
+    return {}
+
+
 def create_sentiment_job(topic: str, source_dataset: Optional[str] = None,
                          texts: Optional[List[Dict[str, str]]] = None) -> str:
     return _create_job("sentiment", topic, source_dataset, texts)
@@ -376,6 +389,7 @@ def _run_sentiment(job_id, topic, source_dataset, items, text_only, on_progress)
         out_items.append({
             "text": src["text"],
             "username": src["username"],
+            **_comment_ref(src),
             "main": an["main"],
             "comparison": an["comparison"],
             "agree": an["agree"],
@@ -423,6 +437,7 @@ def _run_procontra(job_id, topic, source_dataset, items, text_only, on_progress,
         out_items.append({
             "text": src["text"],
             "username": src["username"],
+            **_comment_ref(src),
             "stance": an["stance"],
             "score": an["score"],
             "scores": an["scores"],

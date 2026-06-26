@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { BackendResponse } from "@/lib/backendApi";
 
 export type ScrapeFeature = "keyword" | "hashtag" | "post" | "creator";
@@ -43,10 +43,36 @@ const featureLabels: Record<ScrapeFeature, string> = {
 };
 
 const ScrapingContext = createContext<ScrapingContextValue | null>(null);
+const STORAGE_KEY = "aimos:scraping-tasks";
+
+function loadStoredTasks(): Record<ScrapeFeature, ScrapeTaskState> {
+  if (typeof window === "undefined") return initialTasks;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return initialTasks;
+    const parsed = JSON.parse(raw) as Partial<Record<ScrapeFeature, ScrapeTaskState>>;
+    return {
+      keyword: { ...initialTask, ...parsed.keyword, status: parsed.keyword?.status === "loading" ? "idle" : parsed.keyword?.status ?? "idle" },
+      hashtag: { ...initialTask, ...parsed.hashtag, status: parsed.hashtag?.status === "loading" ? "idle" : parsed.hashtag?.status ?? "idle" },
+      post: { ...initialTask, ...parsed.post, status: parsed.post?.status === "loading" ? "idle" : parsed.post?.status ?? "idle" },
+      creator: { ...initialTask, ...parsed.creator, status: parsed.creator?.status === "loading" ? "idle" : parsed.creator?.status ?? "idle" }
+    };
+  } catch {
+    return initialTasks;
+  }
+}
 
 export function ScrapingProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [runningFeature, setRunningFeature] = useState<ScrapeFeature | null>(null);
+
+  useEffect(() => {
+    setTasks(loadStoredTasks());
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }, [tasks]);
 
   const runScrape = useCallback<ScrapingContextValue["runScrape"]>(async (feature, runner) => {
     if (runningFeature) {

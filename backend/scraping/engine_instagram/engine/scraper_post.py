@@ -1423,6 +1423,22 @@ class InstagramScraperV16:
             result["comments"]      = final_comments
             result["comments_count"] = len(final_comments)
             result["replies_count"]  = total_replies_fetched
+            result["inputUrl"] = post_url
+            result["id"] = result.get("media_id") or shortcode
+            result["shortCode"] = shortcode
+            result["type"] = result.get("media_type") or "UNKNOWN"
+            result["commentsCount"] = result["comments_count"]
+            result["likesCount"] = result.get("likes_count", 0)
+            result["videoViewCount"] = result.get("video_views", 0)
+            result["videoPlayCount"] = result.get("play_count", 0)
+            result["timestamp"] = result.get("scraped_at")
+            result["ownerUsername"] = result.get("owner_username", "")
+            result["ownerFullName"] = result.get("owner_full_name", "")
+            result["ownerId"] = result.get("owner_id", "")
+            result["productType"] = result.get("product_type", "")
+            result["displayUrl"] = result.get("thumbnail_url", "")
+            result["firstComment"] = final_comments[0]["text"] if final_comments else ""
+            result["latestComments"] = [self._to_apify_comment(c) for c in final_comments]
             result["sentiment_summary"] = self._summarize(final_comments, result)
 
             # ── NEW: agregasi komentator teraktif ──
@@ -1637,6 +1653,42 @@ class InstagramScraperV16:
         return result
 
     # ── HELPER: build entry komentar ──────────────────────────
+
+    @staticmethod
+    def _to_apify_timestamp(value) -> str:
+        if value in (None, ""):
+            return ""
+        try:
+            ts = int(value)
+            if ts > 1_000_000_000_000:
+                ts = int(ts / 1000)
+            return datetime.fromtimestamp(ts).isoformat()
+        except (TypeError, ValueError, OSError):
+            return str(value)
+
+    def _to_apify_comment(self, entry: Dict) -> Dict:
+        username = entry.get("username", "")
+        replies = [
+            self._to_apify_comment(reply)
+            for reply in entry.get("replies") or []
+            if isinstance(reply, dict)
+        ]
+        return {
+            "id": entry.get("comment_id", ""),
+            "text": entry.get("text", ""),
+            "ownerUsername": username,
+            "ownerProfilePicUrl": entry.get("profile_pic_url", ""),
+            "timestamp": self._to_apify_timestamp(entry.get("created_at")),
+            "repliesCount": entry.get("reply_count", 0),
+            "replies": replies,
+            "likesCount": entry.get("like_count", 0),
+            "owner": {
+                "username": username,
+                "id": entry.get("user_id", ""),
+                "full_name": entry.get("nickname", ""),
+                "profile_pic_url": entry.get("profile_pic_url", ""),
+            },
+        }
 
     def _build_comment_entry(
         self,

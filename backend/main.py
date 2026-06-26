@@ -2,12 +2,17 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from scraping.cookies_router import router as cookies_router
+from database.router import router as database_router
 from scraping.engine_facebook.router import router as facebook_router
 from scraping.engine_instagram.router import router as instagram_router
 from scraping.engine_tiktok.router import router as tiktok_router
 from scraping.engine_twitter.router import router as twitter_router
+
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 
 def _cors_origins() -> list[str]:
@@ -36,6 +41,7 @@ app.include_router(instagram_router, prefix="/api/instagram", tags=["Instagram"]
 app.include_router(twitter_router, prefix="/api/twitter", tags=["Twitter"])
 app.include_router(facebook_router, prefix="/api/facebook", tags=["Facebook"])
 app.include_router(cookies_router, prefix="/api/cookies", tags=["Cookie Sessions"])
+app.include_router(database_router, prefix="/api/database", tags=["Database"])
 
 
 @app.get("/")

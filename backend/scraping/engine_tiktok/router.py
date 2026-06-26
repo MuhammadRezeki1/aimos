@@ -26,7 +26,7 @@ from pydantic import BaseModel
 # PATH CONFIGURATION
 # ============================================================================
 _HERE = os.path.dirname(os.path.abspath(__file__))
-ENGINE_DIR = os.environ.get("TIKTOK_ENGINE_DIR", os.path.join(_HERE, "engine"))
+ENGINE_DIR = os.getenv("TIKTOK_ENGINE_DIR") or os.path.join(_HERE, "engine")
 ENGINE_DIR = os.path.abspath(ENGINE_DIR)  # pastikan absolut
 
 # Pastikan folder engine ada
@@ -51,6 +51,14 @@ def _local_save_json(data: dict, filename: str) -> str:
     with open(fp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, default=str)
     return filename
+
+def _try_import_saved_dataset(filename: str) -> None:
+    try:
+        from pathlib import Path
+        from database.postgres import import_dataset_file
+        import_dataset_file("tiktok", Path(_OUTPUT_VIDEO_DIR) / filename)
+    except Exception as error:
+        print(f"[tt-db] import skipped for {filename}: {error}")
 
 def _success(data: Any, message: str = "Success"):
     return {
@@ -456,6 +464,7 @@ def search_hashtag_endpoint(req: SearchHashtagRequest):
             _attach_scrape_meta(result, req.group, req.title, req.goal)
             fn = f"tt_search_tag_{_sanitize(result.get('hashtag', 'tag'))}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             _local_save_json(result, fn)
+            _try_import_saved_dataset(fn)
             result["_meta"] = {"saved_file": fn}
             return _success(result, f"#{result.get('hashtag')}: {result.get('total_fetched', 0)} video")
         return _failure(result.get("error") or "Pencarian hashtag gagal", result)
@@ -476,6 +485,7 @@ def search_keyword_endpoint(req: SearchKeywordRequest):
             _attach_scrape_meta(result, req.group, req.title, req.goal)
             fn = f"tt_search_kw_{_sanitize(req.keyword)[:40]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
             _local_save_json(result, fn)
+            _try_import_saved_dataset(fn)
             result["_meta"] = {"saved_file": fn}
             return _success(result, f"'{req.keyword}': {result.get('total_fetched', 0)} video")
         return _failure(result.get("error") or "Pencarian keyword gagal", result)
@@ -515,6 +525,7 @@ def save_combined_dataset(req: SaveCombinedRequest):
     }
     fn = f"tt_post_combined_{_sanitize(label)[:30]}_{now.strftime('%Y%m%d_%H%M%S')}.json"
     _local_save_json(result, fn)
+    _try_import_saved_dataset(fn)
     result["_meta"] = {"saved_file": fn}
     return _success(result, f"Dataset gabungan disimpan: {len(comments)} komentar")
 
@@ -536,6 +547,7 @@ def search_post_endpoint(req: PostCommentsRequest):
             return _failure(result.get("error") or "Scraping post gagal", result)
         fn = f"tt_post_{_sanitize(result.get('video_id') or 'video')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         _local_save_json(result, fn)
+        _try_import_saved_dataset(fn)
         result["_meta"] = {"saved_file": fn}
         return _success(result, f"Post: {result.get('comments_count', 0)} komentar")
     except Exception as e:
@@ -554,6 +566,7 @@ def search_profile_endpoint(req: ProfileRequest):
         data = result.get("data", {})
         fn = f"tt_profile_{_sanitize(result.get('username') or username)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         _local_save_json(result, fn)
+        _try_import_saved_dataset(fn)
         result["_meta"] = {"saved_file": fn}
         return _success(result, f"@{data.get('username') or result.get('username')}: profile collected")
     except Exception as e:

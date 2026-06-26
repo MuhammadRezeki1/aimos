@@ -823,7 +823,44 @@ class TikTokSearchScraper(TikTokWarmupMixin):
         # URL video
         url = f"https://www.tiktok.com/@{username}/video/{vid_id}" if username else f"https://www.tiktok.com/video/{vid_id}"
 
+        hashtag_objects = [{"name": tag, "title": "", "cover": ""} for tag in hashtags]
+        author_meta = {
+            "id": str(author.get("id", "") or author.get("uid", "")),
+            "name": username,
+            "profileUrl": f"https://www.tiktok.com/@{username}" if username else "",
+            "nickName": full_name,
+            "verified": is_verified,
+            "signature": author.get("signature", "") or "",
+            "avatar": (
+                (author.get("avatarLarger") or {}).get("url_list", [""])[0]
+                if isinstance(author.get("avatarLarger"), dict)
+                else author.get("avatarThumb", "")
+            ),
+            "privateAccount": bool(author.get("privateAccount", False)),
+            "fans": int(author.get("followerCount", 0) or 0),
+            "heart": int(author.get("heartCount", 0) or 0),
+            "video": int(author.get("videoCount", 0) or 0),
+        }
+        music_meta = {
+            "musicName": music_title,
+            "musicAuthor": music.get("authorName", "") or music.get("ownerNickName", ""),
+            "musicOriginal": bool(music.get("original", False)),
+            "playUrl": ((music.get("playUrl") or {}).get("url_list", [""])[0] if isinstance(music.get("playUrl"), dict) else ""),
+            "coverMediumUrl": ((music.get("coverMedium") or {}).get("url_list", [""])[0] if isinstance(music.get("coverMedium"), dict) else ""),
+            "musicId": str(music.get("id", "") or ""),
+        }
+        video_meta = {
+            "duration": duration,
+            "coverUrl": thumb,
+            "originalCoverUrl": thumb,
+            "height": int(video_info.get("height", 0) or 0),
+            "width": int(video_info.get("width", 0) or 0),
+            "definition": video_info.get("definition", "") or video_info.get("ratio", ""),
+            "format": video_info.get("format", "") or "mp4",
+        }
+
         return {
+            # AIMOS normalized fields
             "video_id":       vid_id,
             "url":            url,
             "username":       username,
@@ -843,6 +880,32 @@ class TikTokSearchScraper(TikTokWarmupMixin):
             "thumbnail_url":  thumb,
             "source":         source,
             "rank":           rank,
+            # Apify-compatible fields
+            "id":              vid_id,
+            "text":            desc,
+            "createTime":      create_time,
+            "createTimeISO":   created_iso,
+            "locationCreated": item.get("locationCreated", "") or item.get("region", ""),
+            "isAd":            bool(item.get("isAd", False)),
+            "authorMeta":      author_meta,
+            "musicMeta":       music_meta,
+            "videoMeta":       video_meta,
+            "webVideoUrl":     url,
+            "diggCount":       like_count,
+            "shareCount":      share_count,
+            "playCount":       play_count,
+            "collectCount":    collect_count,
+            "commentCount":    comment_count,
+            "hashtags_apify":  hashtag_objects,
+            "authorMeta.name": username,
+            "authorMeta.nickName": full_name,
+            "authorMeta.verified": is_verified,
+            "authorMeta.avatar": author_meta["avatar"],
+            "musicMeta.musicName": music_meta["musicName"],
+            "musicMeta.musicAuthor": music_meta["musicAuthor"],
+            "musicMeta.musicOriginal": music_meta["musicOriginal"],
+            "videoMeta.coverUrl": thumb,
+            "videoMeta.duration": duration,
         }
 
     def _parse_sigi_item(self, item: dict, source: str, rank: int) -> Optional[Dict]:
@@ -885,7 +948,33 @@ class TikTokSearchScraper(TikTokWarmupMixin):
         music      = item.get("music", {}) or {}
         url = f"https://www.tiktok.com/@{username}/video/{vid_id}"
 
+        hashtag_objects = [{"name": tag, "title": "", "cover": ""} for tag in hashtags]
+        author_meta = {
+            "name": username,
+            "profileUrl": f"https://www.tiktok.com/@{username}" if username else "",
+            "nickName": author_obj.get("nickname", ""),
+            "verified": bool(author_obj.get("verified", False)),
+            "signature": author_obj.get("signature", "") or "",
+            "avatar": "",
+        }
+        music_meta = {
+            "musicName": music.get("title", ""),
+            "musicAuthor": music.get("authorName", "") or music.get("ownerNickName", ""),
+            "musicOriginal": bool(music.get("original", False)),
+            "musicId": str(music.get("id", "") or ""),
+        }
+        video_meta = {
+            "duration": int(video_info.get("duration", 0) or 0),
+            "coverUrl": "",
+            "originalCoverUrl": "",
+            "height": int(video_info.get("height", 0) or 0),
+            "width": int(video_info.get("width", 0) or 0),
+            "definition": video_info.get("definition", "") or video_info.get("ratio", ""),
+            "format": video_info.get("format", "") or "mp4",
+        }
+
         return {
+            # AIMOS normalized fields
             "video_id":        vid_id,
             "url":             url,
             "username":        username,
@@ -905,6 +994,27 @@ class TikTokSearchScraper(TikTokWarmupMixin):
             "thumbnail_url":   "",
             "source":          source,
             "rank":            rank,
+            # Apify-compatible fields
+            "id":               vid_id,
+            "text":             (item.get("desc", "") or "")[:500],
+            "createTime":       create_time,
+            "createTimeISO":    created_iso,
+            "authorMeta":       author_meta,
+            "musicMeta":        music_meta,
+            "videoMeta":        video_meta,
+            "webVideoUrl":      url,
+            "diggCount":        _s("diggCount"),
+            "shareCount":       _s("shareCount"),
+            "playCount":        _s("playCount"),
+            "collectCount":     _s("collectCount"),
+            "commentCount":     _s("commentCount"),
+            "hashtags_apify":   hashtag_objects,
+            "authorMeta.name":  username,
+            "authorMeta.nickName": author_meta["nickName"],
+            "authorMeta.verified": author_meta["verified"],
+            "musicMeta.musicName": music_meta["musicName"],
+            "musicMeta.musicAuthor": music_meta["musicAuthor"],
+            "videoMeta.duration": video_meta["duration"],
         }
 
     # ════════════════════════════════════════════════════════════
